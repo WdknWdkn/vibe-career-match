@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>キャリアマッチAI Lite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .mbti-option.selected { background-color: #3b82f6; color: white; }
+        .answer-button.selected { background-color: #3b82f6; color: white; }
+        .tab-btn.active { background-color: #3b82f6; color: white; }
+        .value-bar {
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto max-w-6xl p-6">
+        <!-- ヘッダー -->
+        <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 rounded-lg mb-6 shadow-lg">
+            <h1 class="text-3xl font-bold">キャリアマッチAI Lite</h1>
+            <p class="mt-2">AIを活用した価値観ベースの求人マッチング</p>
+        </header>
+
+        <!-- タブナビゲーション -->
+        <div class="flex space-x-4 mb-6">
+            <button onclick="switchTab('personality')" class="tab-btn px-6 py-3 bg-white rounded-lg shadow hover:shadow-lg transition-shadow active">
+                STEP 1: 性格診断
+            </button>
+            <button onclick="switchTab('values')" class="tab-btn px-6 py-3 bg-white rounded-lg shadow hover:shadow-lg transition-shadow">
+                STEP 2: 価値観診断
+            </button>
+            <button onclick="switchTab('search')" class="tab-btn px-6 py-3 bg-white rounded-lg shadow hover:shadow-lg transition-shadow">
+                STEP 3: AI求人検索
+            </button>
+        </div>
+
+        <!-- コンテンツエリア -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <!-- STEP 1: 性格診断 -->
+            <div id="personality" class="tab-content active">
+                <h2 class="text-2xl font-bold mb-4">MBTI性格診断</h2>
+                <p class="text-gray-600 mb-6">あなたの性格タイプを選択してください。わからない場合は<a href="https://www.16personalities.com/ja" target="_blank" class="text-blue-600 underline">こちら</a>で診断できます。</p>
+                <div id="mbti-grid" class="grid grid-cols-4 gap-4 mb-6">
+                    <!-- MBTIタイプが動的に生成される -->
+                </div>
+                <div id="mbti-description" class="mb-6 p-4 bg-gray-100 rounded-lg hidden">
+                    <h3 class="font-bold mb-2">選択したタイプ: <span id="selected-mbti"></span></h3>
+                    <p id="mbti-desc-text" class="text-gray-700"></p>
+                </div>
+                <button onclick="savePersonality()" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400" disabled id="save-personality-btn">
+                    次へ進む
+                </button>
+            </div>
+
+            <!-- STEP 2: 価値観診断 -->
+            <div id="values" class="tab-content">
+                <h2 class="text-2xl font-bold mb-4">価値観診断（30問）</h2>
+                <p class="text-gray-600 mb-6">各質問について、1（強く反対）から5（強く同意）で回答してください。</p>
+                
+                <!-- 進捗表示 -->
+                <div class="mb-6">
+                    <div class="flex justify-between text-sm text-gray-600 mb-2">
+                        <span>進捗: <span id="answered-count">0</span>/30</span>
+                        <span><span id="progress-percent">0</span>%完了</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div id="questions-container" class="space-y-6">
+                    <!-- 質問が動的に生成される -->
+                </div>
+                <button onclick="calculateValues()" class="mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400" disabled id="calculate-values-btn">
+                    診断結果を見る
+                </button>
+
+                <!-- 診断結果表示エリア -->
+                <div id="values-result" class="mt-8 hidden">
+                    <h3 class="text-xl font-bold mb-4">あなたの価値観プロファイル</h3>
+                    <div id="values-chart" class="space-y-4">
+                        <!-- 価値観チャートが動的に生成される -->
+                    </div>
+                    <button onclick="switchTab('search')" class="mt-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        AI求人検索へ進む
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 3: AI求人検索 -->
+            <div id="search" class="tab-content">
+                <h2 class="text-2xl font-bold mb-4">AI求人検索</h2>
+                
+                <!-- プロファイルサマリー -->
+                <div id="profile-summary" class="bg-gray-100 p-4 rounded-lg mb-6">
+                    <h3 class="font-bold mb-2">あなたのプロファイル</h3>
+                    <div id="profile-content">
+                        <!-- プロファイルが動的に生成される -->
+                    </div>
+                </div>
+                
+                <!-- 検索プロンプト生成 -->
+                <div class="bg-gray-100 p-6 rounded-lg mb-6">
+                    <h3 class="text-lg font-semibold mb-2">AI検索プロンプト</h3>
+                    <pre id="search-prompt" class="text-sm whitespace-pre-wrap bg-white p-4 rounded border max-h-96 overflow-auto"></pre>
+                    <div class="mt-4 space-x-2">
+                        <button onclick="generatePrompt()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                            プロンプト生成
+                        </button>
+                        <button onclick="copyPrompt()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                            コピー
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 結果入力エリア -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold mb-2">AI検索結果を貼り付け</h3>
+                    <textarea 
+                        id="search-results-input" 
+                        class="w-full h-48 p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="ChatGPT/ClaudeのWeb検索結果をここに貼り付けてください"
+                    ></textarea>
+                    <button onclick="parseResults()" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                        結果を解析
+                    </button>
+                </div>
+
+                <!-- 求人カード表示エリア -->
+                <div id="job-cards" class="space-y-4">
+                    <!-- 求人カードが動的に生成される -->
+                </div>
+            </div>
+        </div>
+
+        <!-- フッター -->
+        <footer class="mt-8 text-center text-gray-600 text-sm">
+            <p>キャリアマッチAI Lite - あなたの価値観に合った仕事を見つけよう</p>
+            <button onclick="resetAllData()" class="mt-2 text-red-600 underline">データをリセット</button>
+        </footer>
+    </div>
+
+    <script>
+        // アプリケーションのメインロジック
+        const app = {
+            profile: {
+                mbti: null,
+                values: {},
+                answers: {},
+                strengths: [],
+                weaknesses: []
+            },
+            
+            // MBTIの説明
+            mbtiDescriptions: {
+                'INTJ': '建築家型 - 想像力豊かで戦略的な思考の持ち主。あらゆる物事に対して計画を立てる。',
+                'INTP': '論理学者型 - 貪欲な知識欲を持つ革新的な発明家。',
+                'ENTJ': '指揮官型 - 大胆で想像力豊か、かつ強い意志を持つ指導者。',
+                'ENTP': '討論者型 - 賢くて好奇心旺盛な思考家。知的挑戦を楽しむ。',
+                'INFJ': '提唱者型 - 物静かで神秘的だが、人々を非常に勇気づける飽くなき理想主義者。',
+                'INFP': '仲介者型 - 詩的で親切な利他主義者。良い物事のためなら、いつでも懸命に取り組む。',
+                'ENFJ': '主人公型 - カリスマ性があり、人々を励ますリーダー。聞く人を魅了する。',
+                'ENFP': '運動家型 - 情熱的で独創力があり、かつ社交的な自由人。常に笑いの種を見つける。',
+                'ISTJ': '管理者型 - 実際的で事実に基づいた思考の持ち主。その信頼性は紛れもない。',
+                'ISFJ': '擁護者型 - 非常に献身的で心の温かい擁護者。いつでも大切な人を守る準備ができている。',
+                'ESTJ': '幹部型 - 優秀な管理者で、物事や人々を管理する能力にかけては、右に出る者はいない。',
+                'ESFJ': '領事型 - 非常に思いやりがあり社交的で、人気がある。常に熱心に人々に手を差し伸べている。',
+                'ISTP': '巨匠型 - 大胆で実際的な実験者。あらゆる道具を使いこなす。',
+                'ISFP': '冒険家型 - 柔軟性と魅力がある芸術家。常に進んで物事を探索し経験しようとする。',
+                'ESTP': '起業家型 - 賢くてエネルギッシュで、非常に鋭い知覚の持ち主。危険と隣り合わせの人生を楽しむ。',
+                'ESFP': 'エンターテイナー型 - 自発性がありエネルギッシュで熱心なエンターテイナー。周りが退屈することは決してない。'
+            },
+            
+            // 質問データ
+            questions: [
+                // 給与・経済的報酬
+                { id: '1', content: '高い給与のためなら週末も働くことは厭わない', category: 'salary', weight: 2 },
+                { id: '2', content: '仕事を選ぶ際、給与は最も重要な要素だ', category: 'salary', weight: 3 },
+                { id: '3', content: '経済的な安定があれば、仕事内容は二の次でも構わない', category: 'salary', weight: 2 },
+                
+                // 成長・キャリア
+                { id: '4', content: '安定性を犠牲にしても、急成長できる環境を選びたい', category: 'growth', weight: 3 },
+                { id: '5', content: '新しいスキルを身につけることに喜びを感じる', category: 'growth', weight: 2 },
+                { id: '6', content: 'キャリアアップのためなら転職も積極的に考える', category: 'growth', weight: 2 },
+                
+                // ワークライフバランス
+                { id: '7', content: 'プライベートの時間は仕事より重要だ', category: 'worklife', weight: 3 },
+                { id: '8', content: '残業が少ない職場で働きたい', category: 'worklife', weight: 2 },
+                { id: '9', content: 'リモートワークができる環境は必須だ', category: 'worklife', weight: 2 },
+                
+                // 社会貢献
+                { id: '10', content: '社会に貢献できる仕事に就きたい', category: 'social', weight: 3 },
+                { id: '11', content: '利益よりも社会的意義を重視する企業で働きたい', category: 'social', weight: 2 },
+                { id: '12', content: '環境や社会問題に取り組む仕事に興味がある', category: 'social', weight: 2 },
+                
+                // 安定性
+                { id: '13', content: '大企業で安定した雇用を得たい', category: 'stability', weight: 3 },
+                { id: '14', content: '福利厚生が充実した会社を選びたい', category: 'stability', weight: 2 },
+                { id: '15', content: '長期的に同じ会社で働き続けたい', category: 'stability', weight: 2 },
+                
+                // チャレンジ・革新
+                { id: '16', content: 'スタートアップのような挑戦的な環境で働きたい', category: 'challenge', weight: 3 },
+                { id: '17', content: '新規事業立ち上げに関わりたい', category: 'challenge', weight: 2 },
+                { id: '18', content: 'リスクを取ってでも大きな成果を目指したい', category: 'challenge', weight: 2 },
+                
+                // 専門性・スキル
+                { id: '19', content: '専門性を極めることが重要だ', category: 'skill', weight: 3 },
+                { id: '20', content: '技術的なスキルを活かせる仕事がしたい', category: 'skill', weight: 2 },
+                { id: '21', content: '自分の専門分野で認められたい', category: 'skill', weight: 2 },
+                
+                // 人間関係
+                { id: '22', content: 'チームワークを重視する職場で働きたい', category: 'relationship', weight: 3 },
+                { id: '23', content: '同僚との良好な関係は仕事の満足度に大きく影響する', category: 'relationship', weight: 2 },
+                { id: '24', content: '一人で黙々と作業するより、人と協力して働きたい', category: 'relationship', weight: 2 },
+                
+                // 企業文化
+                { id: '25', content: '企業の価値観と自分の価値観が一致することが重要だ', category: 'culture', weight: 3 },
+                { id: '26', content: 'フラットな組織文化の会社で働きたい', category: 'culture', weight: 2 },
+                { id: '27', content: '革新的な企業文化に魅力を感じる', category: 'culture', weight: 2 },
+                
+                // 追加の質問
+                { id: '28', content: '仕事の成果が明確に評価される環境を好む', category: 'growth', weight: 1 },
+                { id: '29', content: '国際的な環境で働くことに興味がある', category: 'challenge', weight: 1 },
+                { id: '30', content: '仕事を通じて自己実現を達成したい', category: 'growth', weight: 3 }
+            ],
+            
+            init() {
+                this.loadFromStorage();
+                this.renderMBTI();
+                this.renderQuestions();
+                this.updateProgressBar();
+                this.updateProfileSummary();
+            },
+            
+            loadFromStorage() {
+                const saved = localStorage.getItem('career_match_profile');
+                if (saved) {
+                    this.profile = JSON.parse(saved);
+                }
+            },
+            
+            saveToStorage() {
+                localStorage.setItem('career_match_profile', JSON.stringify(this.profile));
+            },
+            
+            renderMBTI() {
+                const types = ['INTJ', 'INTP', 'ENTJ', 'ENTP', 'INFJ', 'INFP', 'ENFJ', 'ENFP',
+                              'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ', 'ISTP', 'ISFP', 'ESTP', 'ESFP'];
+                const grid = document.getElementById('mbti-grid');
+                
+                grid.innerHTML = types.map(type => `
+                    <button 
+                        class="mbti-option p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 transition-colors ${this.profile.mbti === type ? 'selected' : ''}"
+                        onclick="selectMBTI('${type}')"
+                    >
+                        ${type}
+                    </button>
+                `).join('');
+
+                if (this.profile.mbti) {
+                    document.getElementById('selected-mbti').textContent = this.profile.mbti;
+                    document.getElementById('mbti-desc-text').textContent = this.mbtiDescriptions[this.profile.mbti];
+                    document.getElementById('mbti-description').classList.remove('hidden');
+                    document.getElementById('save-personality-btn').disabled = false;
+                }
+            },
+            
+            renderQuestions() {
+                const container = document.getElementById('questions-container');
+                container.innerHTML = this.questions.map((q, index) => `
+                    <div class="p-4 border rounded-lg">
+                        <p class="font-semibold mb-3">Q${index + 1}. ${q.content}</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">強く反対</span>
+                            <div class="flex space-x-2">
+                                ${[1,2,3,4,5].map(value => `
+                                    <button 
+                                        class="answer-button w-10 h-10 border-2 border-gray-300 rounded-lg hover:border-blue-500 transition-colors ${this.profile.answers[q.id] === value ? 'selected' : ''}"
+                                        onclick="answerQuestion('${q.id}', ${value})"
+                                    >
+                                        ${value}
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <span class="text-sm text-gray-600">強く同意</span>
+                        </div>
+                    </div>
+                `).join('');
+
+                this.updateProgressBar();
+            },
+
+            updateProgressBar() {
+                const answeredCount = Object.keys(this.profile.answers).length;
+                const totalQuestions = this.questions.length;
+                const progressPercent = Math.round((answeredCount / totalQuestions) * 100);
+
+                document.getElementById('answered-count').textContent = answeredCount;
+                document.getElementById('progress-percent').textContent = progressPercent;
+                document.getElementById('progress-bar').style.width = progressPercent + '%';
+
+                // 全ての質問に回答したら計算ボタンを有効化
+                if (answeredCount === totalQuestions) {
+                    document.getElementById('calculate-values-btn').disabled = false;
+                }
+            },
+
+            updateProfileSummary() {
+                const profileContent = document.getElementById('profile-content');
+                if (!this.profile.mbti || Object.keys(this.profile.values).length === 0) {
+                    profileContent.innerHTML = '<p class="text-gray-600">まだプロファイルが作成されていません。STEP 1から始めてください。</p>';
+                    return;
+                }
+
+                const topValues = Object.entries(this.profile.values)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 3);
+
+                profileContent.innerHTML = `
+                    <div class="space-y-2">
+                        <p><strong>MBTI:</strong> ${this.profile.mbti}</p>
+                        <p><strong>重視する価値観:</strong></p>
+                        <ul class="list-disc list-inside ml-4">
+                            ${topValues.map(([cat, score]) => `
+                                <li>${this.getCategoryLabel(cat)}: ${score}%</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            },
+            
+            generateSearchPrompt() {
+                const topValues = Object.entries(this.profile.values)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 3);
+                
+                return `以下の条件で日本の求人情報を検索してください：
+
+【私のプロファイル】
+- MBTI性格タイプ: ${this.profile.mbti || '未設定'}
+- ${this.mbtiDescriptions[this.profile.mbti] || ''}
+
+【重視する価値観】
+${topValues.map(([cat, score]) => `- ${this.getCategoryLabel(cat)}: ${score}%`).join('\n')}
+
+【価値観の詳細】
+${topValues.map(([cat, score]) => {
+    const keywords = this.getValueKeywords(cat);
+    return `- ${this.getCategoryLabel(cat)}を重視 → ${keywords}`;
+}).join('\n')}
+
+【検索してほしい求人サイト】
+- Indeed Japan (https://jp.indeed.com/)
+- リクナビNEXT (https://next.rikunabi.com/)
+- マイナビ転職 (https://tenshoku.mynavi.jp/)
+- ビズリーチ (https://www.bizreach.jp/)
+- Wantedly (https://www.wantedly.com/)
+- Green（IT系） (https://www.green-japan.com/)
+- doda (https://doda.jp/)
+
+【検索キーワード例】
+${this.buildSearchKeywords(topValues).join('\n')}
+
+【求人情報の形式】
+各求人について以下の情報を含めてください：
+1. 企業名
+2. 職種・ポジション名
+3. 給与レンジ（年収）
+4. 勤務地（リモート可否も含む）
+5. 必要なスキル・経験
+6. なぜ私の価値観（${topValues[0] ? this.getCategoryLabel(topValues[0][0]) : ''}重視）にマッチするか
+7. 応募締切（わかれば）
+8. 求人詳細URL
+
+最新の求人情報を10件以上検索してください。`;
+            },
+
+            buildSearchKeywords(topValues) {
+                const keywords = [];
+                topValues.forEach(([cat]) => {
+                    switch(cat) {
+                        case 'salary':
+                            keywords.push('「高収入 求人」「年収800万以上」「インセンティブ」');
+                            break;
+                        case 'growth':
+                            keywords.push('「キャリアアップ」「成長企業」「スキルアップ支援」');
+                            break;
+                        case 'worklife':
+                            keywords.push('「ワークライフバランス」「フレックス」「リモートワーク」「残業少なめ」');
+                            break;
+                        case 'social':
+                            keywords.push('「社会貢献」「SDGs」「ESG」「NPO」「ソーシャルビジネス」');
+                            break;
+                        case 'stability':
+                            keywords.push('「大手企業」「安定企業」「福利厚生充実」「上場企業」');
+                            break;
+                        case 'challenge':
+                            keywords.push('「スタートアップ」「ベンチャー」「新規事業」「起業」');
+                            break;
+                        case 'skill':
+                            keywords.push('「専門職」「エンジニア」「研究開発」「技術職」');
+                            break;
+                        case 'relationship':
+                            keywords.push('「チームワーク」「アットホーム」「風通しの良い」');
+                            break;
+                        case 'culture':
+                            keywords.push('「企業理念」「ビジョン」「フラットな組織」「革新的」');
+                            break;
+                    }
+                });
+                return keywords;
+            },
+
+            getValueKeywords(category) {
+                const keywords = {
+                    'salary': '高収入、年収アップ、インセンティブ、成果報酬',
+                    'growth': 'キャリアアップ、成長機会、研修制度、スキルアップ',
+                    'worklife': 'ワークライフバランス、フレックス、リモートワーク、有給取得率',
+                    'social': '社会貢献、SDGs、ESG、社会的インパクト',
+                    'stability': '安定企業、大手企業、福利厚生、退職金制度',
+                    'challenge': 'スタートアップ、ベンチャー、新規事業、イノベーション',
+                    'skill': '専門性、技術力、研究開発、スペシャリスト',
+                    'relationship': 'チームワーク、社風、コミュニケーション、働きやすさ',
+                    'culture': '企業理念、価値観、ビジョン、組織文化'
+                };
+                return keywords[category] || '';
+            },
+            
+            getCategoryLabel(category) {
+                const labels = {
+                    salary: '給与・報酬',
+                    growth: '成長機会',
+                    worklife: 'ワークライフバランス',
+                    social: '社会貢献',
+                    stability: '安定性',
+                    challenge: 'チャレンジ',
+                    skill: '専門性',
+                    relationship: '人間関係',
+                    culture: '企業文化'
+                };
+                return labels[category] || category;
+            },
+
+            renderValueChart() {
+                const chartContainer = document.getElementById('values-chart');
+                const sortedValues = Object.entries(this.profile.values)
+                    .sort(([,a], [,b]) => b - a);
+
+                chartContainer.innerHTML = sortedValues.map(([cat, score]) => `
+                    <div class="flex items-center space-x-4">
+                        <div class="w-32 text-right font-medium">${this.getCategoryLabel(cat)}</div>
+                        <div class="flex-1">
+                            <div class="w-full bg-gray-200 rounded-full h-6">
+                                <div class="value-bar bg-blue-600 h-6 rounded-full flex items-center justify-end pr-2" style="width: ${score}%">
+                                    <span class="text-white text-sm font-bold">${score}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        };
+        
+        // グローバル関数
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        function selectMBTI(type) {
+            app.profile.mbti = type;
+            document.querySelectorAll('.mbti-option').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
+            
+            // 説明を表示
+            document.getElementById('selected-mbti').textContent = type;
+            document.getElementById('mbti-desc-text').textContent = app.mbtiDescriptions[type];
+            document.getElementById('mbti-description').classList.remove('hidden');
+            document.getElementById('save-personality-btn').disabled = false;
+            
+            app.saveToStorage();
+        }
+
+        function savePersonality() {
+            if (app.profile.mbti) {
+                switchTab('values');
+            } else {
+                alert('MBTIタイプを選択してください。');
+            }
+        }
+        
+        function answerQuestion(questionId, value) {
+            app.profile.answers[questionId] = value;
+            app.saveToStorage();
+            
+            // ボタンの選択状態を更新
+            const questionDiv = event.target.parentElement.parentElement;
+            questionDiv.querySelectorAll('.answer-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
+            
+            app.updateProgressBar();
+        }
+        
+        function calculateValues() {
+            // 価値観スコア計算
+            const scores = {};
+            const maxPossible = {};
+            
+            app.questions.forEach(q => {
+                const answer = app.profile.answers[q.id] || 3;
+                if (!scores[q.category]) {
+                    scores[q.category] = 0;
+                    maxPossible[q.category] = 0;
+                }
+                scores[q.category] += answer * q.weight;
+                maxPossible[q.category] += 5 * q.weight;
+            });
+            
+            Object.keys(scores).forEach(cat => {
+                scores[cat] = Math.round((scores[cat] / maxPossible[cat]) * 100);
+            });
+            
+            app.profile.values = scores;
+            app.saveToStorage();
+            
+            // 結果を表示
+            app.renderValueChart();
+            document.getElementById('values-result').classList.remove('hidden');
+            document.getElementById('calculate-values-btn').style.display = 'none';
+            
+            // プロファイルサマリーを更新
+            app.updateProfileSummary();
+        }
+        
+        function generatePrompt() {
+            const prompt = app.generateSearchPrompt();
+            document.getElementById('search-prompt').textContent = prompt;
+        }
+        
+        function copyPrompt() {
+            const prompt = document.getElementById('search-prompt').textContent;
+            navigator.clipboard.writeText(prompt).then(() => {
+                alert('プロンプトをコピーしました！ChatGPTやClaudeに貼り付けて検索を実行してください。');
+            });
+        }
+        
+        function parseResults() {
+            const input = document.getElementById('search-results-input').value;
+            if (!input.trim()) {
+                alert('検索結果を入力してください。');
+                return;
+            }
+            
+            // 簡易的な解析（求人ごとに区切られていると仮定）
+            const jobs = input.split(/\n{2,}/).filter(text => text.trim().length > 0);
+            
+            const container = document.getElementById('job-cards');
+            container.innerHTML = jobs.map((jobText, index) => {
+                // 基本的な情報を抽出する試み
+                const lines = jobText.split('\n');
+                let company = '';
+                let position = '';
+                let salary = '';
+                let location = '';
+                
+                // 簡単なパターンマッチング
+                lines.forEach(line => {
+                    if (line.includes('企業') || line.includes('会社')) {
+                        company = line.replace(/^.*[:：]/, '').trim();
+                    }
+                    if (line.includes('職種') || line.includes('ポジション')) {
+                        position = line.replace(/^.*[:：]/, '').trim();
+                    }
+                    if (line.includes('給与') || line.includes('年収')) {
+                        salary = line.replace(/^.*[:：]/, '').trim();
+                    }
+                    if (line.includes('勤務地') || line.includes('場所')) {
+                        location = line.replace(/^.*[:：]/, '').trim();
+                    }
+                });
+                
+                return `
+                    <div class="p-6 border rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold">${company || '企業名'}</h3>
+                                <p class="text-gray-600">${position || '職種'}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-green-600 font-semibold">${salary || '給与情報'}</p>
+                                <p class="text-gray-500 text-sm">${location || '勤務地'}</p>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded mb-4">
+                            <pre class="text-sm whitespace-pre-wrap">${jobText}</pre>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button 
+                                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                                onclick="saveJob(${index}, '${btoa(encodeURIComponent(jobText))}')"
+                            >
+                                保存
+                            </button>
+                            <button 
+                                class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                                onclick="copyJobInfo('${btoa(encodeURIComponent(jobText))}')"
+                            >
+                                コピー
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (jobs.length === 0) {
+                container.innerHTML = '<p class="text-gray-600">求人情報が見つかりませんでした。検索結果の形式を確認してください。</p>';
+            }
+        }
+        
+        function saveJob(jobId, encodedJobText) {
+            const saved = JSON.parse(localStorage.getItem('saved_jobs') || '[]');
+            const jobText = decodeURIComponent(atob(encodedJobText));
+            saved.push({ 
+                id: jobId, 
+                text: jobText,
+                timestamp: new Date().toISOString(),
+                profile: app.profile
+            });
+            localStorage.setItem('saved_jobs', JSON.stringify(saved));
+            alert('求人を保存しました！');
+        }
+
+        function copyJobInfo(encodedJobText) {
+            const jobText = decodeURIComponent(atob(encodedJobText));
+            navigator.clipboard.writeText(jobText).then(() => {
+                alert('求人情報をコピーしました！');
+            });
+        }
+
+        function resetAllData() {
+            if(confirm('すべてのデータを削除しますか？この操作は取り消せません。')) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+        
+        // 初期化
+        window.onload = () => app.init();
+    </script>
+</body>
+</html>
